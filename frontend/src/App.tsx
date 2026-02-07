@@ -3,15 +3,15 @@ import Login from "./auth/Login";
 import BoardsList from "./pages/BoardsList";
 
 export default function App() {
-    const [user, setUser] = useState<string | null>(null);
+  const [user, setUser] = useState<string | null>(null);
 
-    return (
-        <>
-            {user ? (
-                <BoardsList />
-            ) : (
-                <Login onLogin={(email) => setUser(email)} />
-            )}
-        </>
-    );
+  return (
+    <>
+      {user ? (
+        <BoardsList />
+      ) : (
+        <Login onLogin={(email) => setUser(email)} />
+      )}
+    </>
+  );
 }
