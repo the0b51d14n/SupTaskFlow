@@ -1,4 +1,10 @@
-import { DndContext, useDraggable, useDroppable } from "@dnd-kit/core";
+import {
+  DndContext,
+  useDraggable,
+  useDroppable,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+
 import { useState } from "react";
 
 type Card = {
@@ -9,11 +15,25 @@ type Card = {
   labels?: string[];
 };
 
-type Column = { id: string; name: string; cards: Card[] };
-type Board = { id: string; name: string; columns: Column[] };
+type Column = {
+  id: string;
+  name: string;
+  cards: Card[];
+};
 
-function DraggableCard({ card }: { card: Card }) {
+type Board = {
+  id: string;
+  name: string;
+  columns: Column[];
+};
 
+function DraggableCard({
+  card,
+  onClick,
+}: {
+  card: Card;
+  onClick: (card: Card) => void;
+}) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: card.id,
   });
@@ -32,8 +52,8 @@ function DraggableCard({ card }: { card: Card }) {
       {...attributes}
       className="card"
       style={style}
+      onClick={() => onClick(card)}
     >
-
       <strong>{card.title}</strong>
 
       {card.description && (
@@ -73,7 +93,6 @@ function DraggableCard({ card }: { card: Card }) {
           ))}
         </div>
       )}
-
     </div>
   );
 }
@@ -81,18 +100,18 @@ function DraggableCard({ card }: { card: Card }) {
 function DroppableColumn({
   column,
   onAddCard,
+  onCardClick,
 }: {
   column: Column;
   onAddCard: (columnId: string, title: string) => void;
+  onCardClick: (card: Card) => void;
 }) {
-
   const { setNodeRef } = useDroppable({
     id: column.id,
   });
 
   return (
     <div className="column" ref={setNodeRef}>
-
       <h3>{column.name}</h3>
 
       {column.name === "À faire" && (
@@ -109,9 +128,12 @@ function DroppableColumn({
       )}
 
       {column.cards.map((card) => (
-        <DraggableCard key={card.id} card={card} />
+        <DraggableCard
+          key={card.id}
+          card={card}
+          onClick={onCardClick}
+        />
       ))}
-
     </div>
   );
 }
@@ -123,18 +145,16 @@ export default function BoardKanban({
   board: Board;
   goBack: () => void;
 }) {
-
   const [columns, setColumns] = useState(board.columns);
 
   function addCard(columnId: string, title: string) {
-
-    const description = prompt("Description (optionnelle) :") || "";
+    const description = prompt("Description :") || "";
 
     const dueDate =
       prompt("Date d'échéance (YYYY-MM-DD) :") || "";
 
     const labelsInput =
-      prompt("Labels (séparés par des virgules) :") || "";
+      prompt("Labels (séparés par virgule) :") || "";
 
     const labels = labelsInput
       ? labelsInput.split(",").map((l) => l.trim())
@@ -149,110 +169,97 @@ export default function BoardKanban({
     };
 
     const newColumns = columns.map((column) => {
-
       if (column.id === columnId) {
-
         return {
           ...column,
           cards: [...column.cards, newCard],
         };
-
       }
 
       return column;
-
     });
+
+    setColumns(newColumns);
+  }
+
+  function handleCardClick(card: Card) {
+    console.log("Carte cliquée :", card);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overColumnId = over.id as string;
+
+    let sourceColumnIndex = -1;
+    let sourceCardIndex = -1;
+
+    columns.forEach((column, colIndex) => {
+      const cardIndex = column.cards.findIndex(
+        (card) => card.id === activeId
+      );
+
+      if (cardIndex !== -1) {
+        sourceColumnIndex = colIndex;
+        sourceCardIndex = cardIndex;
+      }
+    });
+
+    if (sourceColumnIndex === -1) return;
+
+    const sourceColumn = columns[sourceColumnIndex];
+    const card = sourceColumn.cards[sourceCardIndex];
+
+    const newColumns = [...columns];
+
+    newColumns[sourceColumnIndex] = {
+      ...sourceColumn,
+      cards: sourceColumn.cards.filter(
+        (c) => c.id !== activeId
+      ),
+    };
+
+    const destinationColumnIndex =
+      newColumns.findIndex(
+        (col) => col.id === overColumnId
+      );
+
+    if (destinationColumnIndex !== -1) {
+      newColumns[destinationColumnIndex] = {
+        ...newColumns[destinationColumnIndex],
+        cards: [
+          ...newColumns[destinationColumnIndex].cards,
+          card,
+        ],
+      };
+    }
 
     setColumns(newColumns);
   }
 
   return (
     <div style={{ padding: 20 }}>
-
-      <button onClick={goBack} style={{ marginBottom: 15 }}>
+      <button onClick={goBack}>
         ← Retour aux boards
       </button>
 
       <h1>{board.name}</h1>
 
-      <DndContext
-        onDragEnd={(event) => {
-
-          const { active, over } = event;
-
-          if (!over) return;
-
-          const activeId = active.id;
-          const overColumnId = over.id;
-
-          let sourceColumnIndex = -1;
-          let sourceCardIndex = -1;
-
-          columns.forEach((column, colIndex) => {
-
-            const cardIndex = column.cards.findIndex(
-              (card) => card.id === activeId
-            );
-
-            if (cardIndex !== -1) {
-
-              sourceColumnIndex = colIndex;
-              sourceCardIndex = cardIndex;
-
-            }
-
-          });
-
-          if (sourceColumnIndex === -1) return;
-
-          const sourceColumn = columns[sourceColumnIndex];
-          const card = sourceColumn.cards[sourceCardIndex];
-
-          const newColumns = [...columns];
-
-          newColumns[sourceColumnIndex] = {
-            ...sourceColumn,
-            cards: sourceColumn.cards.filter(
-              (c) => c.id !== activeId
-            ),
-          };
-
-          const destinationColumnIndex =
-            newColumns.findIndex(
-              (col) => col.id === overColumnId
-            );
-
-          if (destinationColumnIndex !== -1) {
-
-            newColumns[destinationColumnIndex] = {
-              ...newColumns[destinationColumnIndex],
-              cards: [
-                ...newColumns[destinationColumnIndex].cards,
-                card,
-              ],
-            };
-
-          }
-
-          setColumns(newColumns);
-
-        }}
-      >
-
+      <DndContext onDragEnd={handleDragEnd}>
         <div className="kanban-board">
-
           {columns.map((col) => (
             <DroppableColumn
               key={col.id}
               column={col}
               onAddCard={addCard}
+              onCardClick={handleCardClick}
             />
           ))}
-
         </div>
-
       </DndContext>
-
     </div>
   );
 }
