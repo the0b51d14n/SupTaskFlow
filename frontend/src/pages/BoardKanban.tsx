@@ -1,22 +1,172 @@
+import { DndContext, useDraggable, useDroppable } from "@dnd-kit/core";
+import { useState } from "react";
+
 type Card = { id: string; title: string };
 type Column = { id: string; name: string; cards: Card[] };
 type Board = { id: string; name: string; columns: Column[] };
 
-export default function BoardKanban({ board, goBack }: { board: Board; goBack: () => void }) {
-    return (
-        <div style={{ padding: 20 }}>
-            <button onClick={goBack} style={{ marginBottom: 15 }}>← Retour aux boards</button>
-            <h1>{board.name}</h1>
-            <div className="kanban-board">
-                {board.columns.map(col => (
-                    <div className="column" key={col.id}>
-                        <h3>{col.name}</h3>
-                        {col.cards.map(card => (
-                            <div className="card" key={card.id}>{card.title}</div>
-                        ))}
-                    </div>
-                ))}
-            </div>
+function DraggableCard({ card }: { card: Card }) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: card.id,
+  });
+
+  const style = {
+    transform: transform
+      ? `translate(${transform.x}px, ${transform.y}px)`
+      : undefined,
+    cursor: "grab",
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className="card"
+      style={style}
+    >
+      {card.title}
+    </div>
+  );
+}
+
+function DroppableColumn({
+  column,
+  onAddCard,
+}: {
+  column: Column;
+  onAddCard: (columnId: string, title: string) => void;
+}) {
+  const { setNodeRef } = useDroppable({
+    id: column.id,
+  });
+
+  return (
+    <div className="column" ref={setNodeRef}>
+      <h3>{column.name}</h3>
+
+      {column.name === "À faire" && (
+        <button
+          onClick={() => {
+            const title = prompt("Nom de la tâche :");
+            if (!title) return;
+            onAddCard(column.id, title);
+          }}
+          style={{ marginBottom: "10px" }}
+        >
+          + Ajouter une carte
+        </button>
+      )}
+
+      {column.cards.map((card) => (
+        <DraggableCard key={card.id} card={card} />
+      ))}
+    </div>
+  );
+}
+
+export default function BoardKanban({
+  board,
+  goBack,
+}: {
+  board: Board;
+  goBack: () => void;
+}) {
+
+  const [columns, setColumns] = useState(board.columns);
+
+  function addCard(columnId: string, title: string) {
+    const newCard: Card = {
+      id: crypto.randomUUID(),
+      title,
+    };
+
+    const newColumns = columns.map((column) => {
+      if (column.id === columnId) {
+        return {
+          ...column,
+          cards: [...column.cards, newCard],
+        };
+      }
+      return column;
+    });
+
+    setColumns(newColumns);
+  }
+
+  return (
+    <div style={{ padding: 20 }}>
+      <button onClick={goBack} style={{ marginBottom: 15 }}>
+        ← Retour aux boards
+      </button>
+
+      <h1>{board.name}</h1>
+
+      <DndContext
+        onDragEnd={(event) => {
+
+          const { active, over } = event;
+
+          if (!over) return;
+
+          const activeId = active.id;
+          const overColumnId = over.id;
+
+          let sourceColumnIndex = -1;
+          let sourceCardIndex = -1;
+
+          columns.forEach((column, colIndex) => {
+            const cardIndex = column.cards.findIndex(
+              (card) => card.id === activeId
+            );
+
+            if (cardIndex !== -1) {
+              sourceColumnIndex = colIndex;
+              sourceCardIndex = cardIndex;
+            }
+          });
+
+          if (sourceColumnIndex === -1) return;
+
+          const sourceColumn = columns[sourceColumnIndex];
+          const card = sourceColumn.cards[sourceCardIndex];
+
+          const newColumns = [...columns];
+
+          newColumns[sourceColumnIndex] = {
+            ...sourceColumn,
+            cards: sourceColumn.cards.filter(
+              (c) => c.id !== activeId
+            ),
+          };
+
+          const destinationColumnIndex = newColumns.findIndex(
+            (col) => col.id === overColumnId
+          );
+
+          if (destinationColumnIndex !== -1) {
+            newColumns[destinationColumnIndex] = {
+              ...newColumns[destinationColumnIndex],
+              cards: [
+                ...newColumns[destinationColumnIndex].cards,
+                card,
+              ],
+            };
+          }
+
+          setColumns(newColumns);
+        }}
+      >
+        <div className="kanban-board">
+          {columns.map((col) => (
+            <DroppableColumn
+              key={col.id}
+              column={col}
+              onAddCard={addCard}
+            />
+          ))}
         </div>
-    );
+      </DndContext>
+    </div>
+  );
 }
