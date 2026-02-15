@@ -5,8 +5,10 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 
+import { arrayMove } from "@dnd-kit/sortable";
 import { useState } from "react";
 import Modal from "../components/Modal";
+import "../styles/kanban.css";
 
 type Card = {
   id: string;
@@ -35,15 +37,8 @@ function DraggableCard({
   card: Card;
   onClick: (card: Card) => void;
 }) {
-
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-  } = useDraggable({
-    id: card.id,
-  });
+  const { attributes, listeners, setNodeRef, transform } =
+    useDraggable({ id: card.id });
 
   const style = {
     transform: transform
@@ -55,19 +50,14 @@ function DraggableCard({
     <div
       ref={setNodeRef}
       className="card"
-      style={{
-        ...style,
-        position: "relative",
-        cursor: "default",
-      }}
+      style={style}
       onClick={() => onClick(card)}
     >
-
       <div
         {...listeners}
         {...attributes}
-        onClick={(e) => e.stopPropagation()}
         className="drag-handle"
+        onClick={(e) => e.stopPropagation()}
       >
         ⠿
       </div>
@@ -75,32 +65,26 @@ function DraggableCard({
       <strong>{card.title}</strong>
 
       {card.description && (
-        <div style={{ fontSize: "12px", opacity: 0.8 }}>
+        <div className="card-description">
           {card.description}
         </div>
       )}
 
       {card.dueDate && (
-        <div style={{ fontSize: "11px", marginTop: "4px" }}>
+        <div className="card-date">
           📅 {card.dueDate}
         </div>
       )}
 
-      {card.labels && card.labels.length > 0 && (
-        <div style={{
-          marginTop: "5px",
-          display: "flex",
-          gap: "5px",
-          flexWrap: "wrap",
-        }}>
-          {card.labels.map((label, index) => (
-            <span key={index}>
+      {card.labels?.length ? (
+        <div className="card-labels">
+          {card.labels.map((label, i) => (
+            <span key={i} className="card-label">
               {label}
             </span>
           ))}
         </div>
-      )}
-
+      ) : null}
     </div>
   );
 }
@@ -109,47 +93,67 @@ function DroppableColumn({
   column,
   onAddCard,
   onCardClick,
+  onRenameColumn,
+  onDeleteColumn,
 }: {
   column: Column;
   onAddCard: (columnId: string, title: string) => void;
   onCardClick: (card: Card) => void;
+  onRenameColumn: (columnId: string, name: string) => void;
+  onDeleteColumn: (columnId: string) => void;
 }) {
+  const { setNodeRef } = useDroppable({ id: column.id });
 
-  const { setNodeRef } = useDroppable({
-    id: column.id,
-  });
+  function handleRename() {
+    const name = prompt("Nouveau nom", column.name);
+    if (name) onRenameColumn(column.id, name);
+  }
+
+  function handleDelete() {
+    if (confirm("Supprimer cette colonne ?")) {
+      onDeleteColumn(column.id);
+    }
+  }
+
+  function handleAddCard() {
+    const title = prompt("Nom de la tâche");
+    if (title) onAddCard(column.id, title);
+  }
 
   return (
-    <div className="column" ref={setNodeRef}>
+    <div ref={setNodeRef} className="column">
+      <div className="column-header">
+        <h3
+          className="column-title"
+          onClick={handleRename}
+        >
+          {column.name}
+        </h3>
 
-      <h3>{column.name}</h3>
+        <button
+          className="column-delete-btn"
+          onClick={handleDelete}
+        >
+          ✕
+        </button>
+      </div>
 
-      {/* BOUTON UNIQUEMENT POUR "À faire" */}
       {column.name === "À faire" && (
         <button
-          onClick={() => {
-
-            const title = prompt("Nom de la tâche :");
-
-            if (!title) return;
-
-            onAddCard(column.id, title);
-
-          }}
-          style={{ marginBottom: "10px" }}
+          className="add-card-btn"
+          onClick={handleAddCard}
         >
           + Ajouter une carte
         </button>
       )}
 
-      {column.cards.map((card) => (
+      {column.cards.map(card => (
         <DraggableCard
           key={card.id}
           card={card}
           onClick={onCardClick}
         />
       ))}
-
     </div>
   );
 }
@@ -161,173 +165,227 @@ export default function BoardKanban({
   board: Board;
   goBack: () => void;
 }) {
+  const [columns, setColumns] =
+    useState(board.columns);
 
-  const [columns, setColumns] = useState(board.columns);
+  const [selectedCard, setSelectedCard] =
+    useState<Card | null>(null);
 
-  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
-  const [editCard, setEditCard] = useState<Card | null>(null);
+  const [editCard, setEditCard] =
+    useState<Card | null>(null);
 
   function addCard(columnId: string, title: string) {
-
     const newCard: Card = {
-
       id: crypto.randomUUID(),
       title,
       description: "",
       dueDate: "",
       labels: [],
-
     };
 
-    const newColumns = columns.map(column =>
-      column.id === columnId
-        ? { ...column, cards: [...column.cards, newCard] }
-        : column
+    setColumns(cols =>
+      cols.map(col =>
+        col.id === columnId
+          ? {
+              ...col,
+              cards: [...col.cards, newCard],
+            }
+          : col
+      )
     );
-
-    setColumns(newColumns);
-
-  }
-
-  function handleCardClick(card: Card) {
-
-    setSelectedCard(card);
-    setEditCard({ ...card });
-
   }
 
   function saveCard() {
-
     if (!editCard) return;
 
-    const newColumns = columns.map(column => ({
-      ...column,
-      cards: column.cards.map(card =>
-        card.id === editCard.id ? editCard : card
-      ),
-    }));
+    setColumns(cols =>
+      cols.map(col => ({
+        ...col,
+        cards: col.cards.map(card =>
+          card.id === editCard.id
+            ? editCard
+            : card
+        ),
+      }))
+    );
 
-    setColumns(newColumns);
-
-    setSelectedCard(null);
-    setEditCard(null);
-
+    closeModal();
   }
 
   function deleteCard() {
-
     if (!editCard) return;
 
-    const newColumns = columns.map(column => ({
-      ...column,
-      cards: column.cards.filter(
-        card => card.id !== editCard.id
-      ),
-    }));
+    setColumns(cols =>
+      cols.map(col => ({
+        ...col,
+        cards: col.cards.filter(
+          card => card.id !== editCard.id
+        ),
+      }))
+    );
 
-    setColumns(newColumns);
+    closeModal();
+  }
 
+  function handleCardClick(card: Card) {
+    setSelectedCard(card);
+    setEditCard({ ...card });
+  }
+
+  function closeModal() {
     setSelectedCard(null);
     setEditCard(null);
+  }
 
+  function renameColumn(
+    columnId: string,
+    name: string
+  ) {
+    setColumns(cols =>
+      cols.map(col =>
+        col.id === columnId
+          ? { ...col, name }
+          : col
+      )
+    );
+  }
+
+  function deleteColumn(columnId: string) {
+    setColumns(cols =>
+      cols.filter(col => col.id !== columnId)
+    );
   }
 
   function addColumn() {
-
-    const name = prompt("Nom de la colonne :");
-
+    const name = prompt("Nom de la colonne");
     if (!name) return;
 
-    const newColumn: Column = {
-
-      id: crypto.randomUUID(),
-      name,
-      cards: [],
-
-    };
-
-    setColumns([...columns, newColumn]);
-
+    setColumns(cols => [
+      ...cols,
+      {
+        id: crypto.randomUUID(),
+        name,
+        cards: [],
+      },
+    ]);
   }
 
   function handleDragEnd(event: DragEndEvent) {
-
     const { active, over } = event;
-
     if (!over) return;
 
     const activeId = active.id as string;
-    const overColumnId = over.id as string;
+    const overId = over.id as string;
 
     let sourceColumnIndex = -1;
+    let destinationColumnIndex = -1;
     let sourceCardIndex = -1;
+    let destinationCardIndex = -1;
 
-    columns.forEach((column, colIndex) => {
+    columns.forEach((col, colIndex) => {
+      const activeIndex =
+        col.cards.findIndex(
+          card => card.id === activeId
+        );
 
-      const cardIndex = column.cards.findIndex(
-        card => card.id === activeId
-      );
-
-      if (cardIndex !== -1) {
-
+      if (activeIndex !== -1) {
         sourceColumnIndex = colIndex;
-        sourceCardIndex = cardIndex;
-
+        sourceCardIndex = activeIndex;
       }
 
+      const overIndex =
+        col.cards.findIndex(
+          card => card.id === overId
+        );
+
+      if (overIndex !== -1) {
+        destinationColumnIndex = colIndex;
+        destinationCardIndex = overIndex;
+      }
+
+      if (col.id === overId) {
+        destinationColumnIndex = colIndex;
+        destinationCardIndex =
+          col.cards.length;
+      }
     });
 
     if (sourceColumnIndex === -1) return;
 
-    const card = columns[sourceColumnIndex].cards[sourceCardIndex];
-
     const newColumns = [...columns];
 
-    newColumns[sourceColumnIndex].cards =
-      newColumns[sourceColumnIndex].cards.filter(
-        c => c.id !== activeId
-      );
+    if (
+      sourceColumnIndex === destinationColumnIndex
+    ) {
+      newColumns[sourceColumnIndex].cards =
+        arrayMove(
+          newColumns[sourceColumnIndex].cards,
+          sourceCardIndex,
+          destinationCardIndex
+        );
+    } else {
+      const movingCard =
+        newColumns[sourceColumnIndex]
+          .cards[sourceCardIndex];
 
-    const destIndex =
-      newColumns.findIndex(col => col.id === overColumnId);
+      newColumns[sourceColumnIndex]
+        .cards.splice(sourceCardIndex, 1);
 
-    if (destIndex !== -1) {
-
-      newColumns[destIndex].cards.push(card);
-
+      newColumns[destinationColumnIndex]
+        .cards.splice(
+          destinationCardIndex,
+          0,
+          movingCard
+        );
     }
 
     setColumns(newColumns);
-
   }
 
   return (
-    <div style={{ padding: 20 }}>
+    <div className="board-container">
 
-      <button onClick={goBack}>
-        ← Retour aux boards
-      </button>
+      <div className="board-header">
 
-      <h1>{board.name}</h1>
+        <button
+          className="back-btn"
+          onClick={goBack}
+        >
+          ← Retour
+        </button>
 
-      <button
-        onClick={addColumn}
-        style={{ marginBottom: "15px" }}
-      >
-        + Ajouter une colonne
-      </button>
+        <h1 className="board-title">
+          {board.name}
+        </h1>
+
+      </div>
+
+      <div className="board-actions">
+
+        <button
+          className="add-column-btn"
+          onClick={addColumn}
+        >
+          + Ajouter une colonne
+        </button>
+
+      </div>
 
       <DndContext onDragEnd={handleDragEnd}>
 
         <div className="kanban-board">
 
           {columns.map(col => (
+
             <DroppableColumn
               key={col.id}
               column={col}
               onAddCard={addCard}
               onCardClick={handleCardClick}
+              onRenameColumn={renameColumn}
+              onDeleteColumn={deleteColumn}
             />
+
           ))}
 
         </div>
@@ -336,21 +394,25 @@ export default function BoardKanban({
 
       <Modal
         isOpen={selectedCard !== null}
-        onClose={() => {
-          setSelectedCard(null);
-          setEditCard(null);
-        }}
+        onClose={closeModal}
       >
 
         {editCard && (
 
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "10px"
-          }}>
+          <div className="modal-content">
 
-            <label>Titre</label>
+            <div className="modal-header">
+
+              <h2>Modifier la carte</h2>
+
+              <button
+                className="modal-x-btn"
+                onClick={closeModal}
+              >
+                ✕
+              </button>
+
+            </div>
 
             <input
               value={editCard.title}
@@ -362,8 +424,6 @@ export default function BoardKanban({
               }
             />
 
-            <label>Description</label>
-
             <textarea
               value={editCard.description}
               onChange={(e) =>
@@ -373,8 +433,6 @@ export default function BoardKanban({
                 })
               }
             />
-
-            <label>Date</label>
 
             <input
               type="date"
@@ -387,29 +445,30 @@ export default function BoardKanban({
               }
             />
 
-            <label>Labels</label>
-
             <input
-              value={editCard.labels?.join(",") || ""}
+              value={
+                editCard.labels?.join(",") || ""
+              }
               onChange={(e) =>
                 setEditCard({
                   ...editCard,
-                  labels: e.target.value
-                    .split(",")
-                    .map(l => l.trim()),
+                  labels:
+                    e.target.value
+                      .split(",")
+                      .map(l => l.trim()),
                 })
               }
             />
 
-            <div style={{ display: "flex", gap: "10px" }}>
+            <div className="modal-actions">
 
               <button onClick={saveCard}>
                 Sauvegarder
               </button>
 
               <button
+                className="delete-btn"
                 onClick={deleteCard}
-                style={{ background: "#dc2626" }}
               >
                 Supprimer
               </button>
