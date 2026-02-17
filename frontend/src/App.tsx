@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import Login from "./auth/Login";
+import Login from "./pages/auth/Login";
 import BoardsList from "./pages/BoardsList";
 
 import ThemeToggle from "./components/ThemeToggle"; // ← AJOUT
