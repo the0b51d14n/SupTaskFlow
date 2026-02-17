@@ -1,7 +1,5 @@
 const API_URL = "http://localhost:1337/api";
 
-/* ================= FRONTEND TYPES ================= */
-
 export type Card = {
   id: string;
   title: string;
@@ -21,8 +19,6 @@ export type Board = {
   name: string;
   columns: Column[];
 };
-
-/* ================= STRAPI RAW TYPES ================= */
 
 type StrapiCard = {
   id: number;
@@ -48,67 +44,140 @@ type StrapiResponse<T> = {
   data: T;
 };
 
-/* ================= HELPERS ================= */
+async function safeFetch(
+  url: string,
+  options?: RequestInit,
+  retries = 5
+): Promise<Response> {
+
+  try {
+
+    const res =
+      await fetch(url, options);
+
+    if (!res.ok)
+      throw new Error(
+        `HTTP ${res.status}`
+      );
+
+    return res;
+
+  } catch {
+
+    if (retries > 0) {
+
+      await new Promise(
+        r => setTimeout(r, 500)
+      );
+
+      return safeFetch(
+        url,
+        options,
+        retries - 1
+      );
+
+    }
+
+    throw new Error(
+      "Strapi unavailable"
+    );
+
+  }
+
+}
 
 function mapCard(card: StrapiCard): Card {
   return {
     id: String(card.id),
     title: card.title,
-    description: card.description ?? "",
-    dueDate: card.dueDate ?? "",
-    labels: card.labels ?? [],
+    description:
+      card.description ?? "",
+    dueDate:
+      card.dueDate ?? "",
+    labels:
+      card.labels ?? [],
   };
 }
 
-function mapColumn(column: StrapiColumn): Column {
+function mapColumn(
+  column: StrapiColumn
+): Column {
+
   return {
     id: String(column.id),
     name: column.name,
-    cards: column.cards?.map(mapCard) ?? [],
+    cards:
+      column.cards?.map(
+        mapCard
+      ) ?? [],
   };
+
 }
 
-function mapBoard(board: StrapiBoard): Board {
+function mapBoard(
+  board: StrapiBoard
+): Board {
+
   return {
     id: String(board.id),
     name: board.name,
-    columns: board.columns?.map(mapColumn) ?? [],
+    columns:
+      board.columns?.map(
+        mapColumn
+      ) ?? [],
   };
-}
 
-/* ================= API ================= */
+}
 
 export const strapiApi = {
 
   async getBoards(): Promise<Board[]> {
 
-    const res = await fetch(
-      `${API_URL}/boards?populate=columns.cards`
-    );
+    const res =
+      await safeFetch(
+        `${API_URL}/boards?populate=columns.cards`
+      );
 
-    const json: StrapiResponse<StrapiBoard[]> =
+    const json:
+      StrapiResponse<
+        StrapiBoard[]
+      > =
       await res.json();
 
-    return json.data.map(mapBoard);
+    return json.data.map(
+      mapBoard
+    );
 
   },
 
-  async createBoard(name: string): Promise<Board> {
+  async createBoard(
+    name: string
+  ): Promise<Board> {
 
-    const res = await fetch(`${API_URL}/boards`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        data: { name },
-      }),
-    });
+    const res =
+      await safeFetch(
+        `${API_URL}/boards`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            data: { name },
+          }),
+        }
+      );
 
-    const json: StrapiResponse<StrapiBoard> =
+    const json:
+      StrapiResponse<
+        StrapiBoard
+      > =
       await res.json();
 
-    return mapBoard(json.data);
+    return mapBoard(
+      json.data
+    );
 
   },
 
@@ -117,23 +186,34 @@ export const strapiApi = {
     name: string
   ): Promise<Column> {
 
-    const res = await fetch(`${API_URL}/columns`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        data: {
-          name,
-          board: Number(boardId),
-        },
-      }),
-    });
+    const res =
+      await safeFetch(
+        `${API_URL}/columns`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            data: {
+              name,
+              board:
+                Number(boardId),
+            },
+          }),
+        }
+      );
 
-    const json: StrapiResponse<StrapiColumn> =
+    const json:
+      StrapiResponse<
+        StrapiColumn
+      > =
       await res.json();
 
-    return mapColumn(json.data);
+    return mapColumn(
+      json.data
+    );
 
   },
 
@@ -142,58 +222,87 @@ export const strapiApi = {
     title: string
   ): Promise<Card> {
 
-    const res = await fetch(`${API_URL}/cards`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        data: {
-          title,
-          column: Number(columnId),
-        },
-      }),
-    });
+    const res =
+      await safeFetch(
+        `${API_URL}/cards`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            data: {
+              title,
+              column:
+                Number(columnId),
+            },
+          }),
+        }
+      );
 
-    const json: StrapiResponse<StrapiCard> =
+    const json:
+      StrapiResponse<
+        StrapiCard
+      > =
       await res.json();
 
-    return mapCard(json.data);
-
-  },
-
-  async updateCard(card: Card): Promise<Card> {
-
-    const res = await fetch(
-      `${API_URL}/cards/${card.id}`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          data: {
-            title: card.title,
-            description: card.description,
-            dueDate: card.dueDate,
-            labels: card.labels,
-          },
-        }),
-      }
+    return mapCard(
+      json.data
     );
 
-    const json: StrapiResponse<StrapiCard> =
+  },
+
+  async updateCard(
+    card: Card
+  ): Promise<Card> {
+
+    const res =
+      await safeFetch(
+        `${API_URL}/cards/${card.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            data: {
+              title:
+                card.title,
+              description:
+                card.description,
+              dueDate:
+                card.dueDate,
+              labels:
+                card.labels,
+            },
+          }),
+        }
+      );
+
+    const json:
+      StrapiResponse<
+        StrapiCard
+      > =
       await res.json();
 
-    return mapCard(json.data);
+    return mapCard(
+      json.data
+    );
 
   },
 
-  async deleteCard(cardId: string): Promise<void> {
+  async deleteCard(
+    cardId: string
+  ): Promise<void> {
 
-    await fetch(`${API_URL}/cards/${cardId}`, {
-      method: "DELETE",
-    });
+    await safeFetch(
+      `${API_URL}/cards/${cardId}`,
+      {
+        method: "DELETE",
+      }
+    );
 
   },
 

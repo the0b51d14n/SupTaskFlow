@@ -29,6 +29,10 @@
       "relation": "oneToOne",
       "target": "api::column.column",
       "inversedBy": "cards"
+    },
+    "ordre": {
+      "type": "integer",
+      "default": 0
     }
   }
 }
