@@ -26,17 +26,43 @@ export default function Register({ onRegister }: Props) {
     };
 
     return (
-        <div className="auth-form">
-            <h1>Inscription</h1>
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
-                <input type="password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} required />
-                <button type="submit" disabled={loading}>{loading ? "Inscription..." : "S'inscrire"}</button>
-                {error && <p className="auth-error">{error}</p>}
-                {success && <p className="auth-success">{success}</p>}
+        <div className="bg-white rounded-lg shadow-lg p-8">
+            <h1 className="text-3xl font-bold text-center text-gray-900 mb-8">Inscription</h1>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <input
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+                <input
+                    type="password"
+                    placeholder="Mot de passe"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                >
+                    {loading ? "Inscription..." : "S'inscrire"}
+                </button>
+                {error && <p className="text-red-500 text-sm text-center font-medium">{error}</p>}
+                {success && <p className="text-green-500 text-sm text-center font-medium">{success}</p>}
             </form>
-            <p className="auth-message">
-                Déjà un compte ? <span className="auth-link" onClick={onRegister}>Connectez-vous</span>
+            <p className="text-center text-gray-600 text-sm mt-6">
+                Déjà un compte ?{" "}
+                <span
+                    onClick={onRegister}
+                    className="text-indigo-600 font-semibold cursor-pointer hover:text-indigo-700 transition-colors"
+                >
+                    Connectez-vous
+                </span>
             </p>
         </div>
     );
