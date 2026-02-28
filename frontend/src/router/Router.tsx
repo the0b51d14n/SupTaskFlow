@@ -3,6 +3,9 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import AuthLayout from "../layouts/AuthLayout";
 import DefaultLayout from "../layouts/DefaultLayout";
 
+import BoardsPage from "../pages/BoardsPage";
+import BoardPage from "../pages/BoardPage";
+
 import LoginPage from "../pages/auth/Login";
 import RegisterPage from "../pages/auth/Register";
 
@@ -13,11 +16,11 @@ const router = createBrowserRouter([
     children: [
       {
         path: "boards",
-        element: <div>Boards List</div>,
+        element: <BoardsPage />,
       },
       {
         path: "board/:id",
-        element: <div>Board Detail</div>,
+        element: <BoardPage />,
       },
     ]
   },
