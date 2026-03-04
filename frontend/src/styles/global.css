@@ -1,0 +1,326 @@
+/* ============================= */
+/* RESET */
+/* ============================= */
+
+*,
+*::before,
+*::after {
+
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+
+}
+
+
+/* ============================= */
+/* BODY */
+/* ============================= */
+
+body {
+
+  font-family: 'Inter', Arial, sans-serif;
+
+  background:
+    linear-gradient(
+      135deg,
+      #eef2ff 0%,
+      #f8fafc 40%,
+      #f1f5f9 100%
+    );
+
+  color: #1e293b;
+
+  line-height: 1.5;
+
+  min-height: 100vh;
+
+}
+
+
+/* ============================= */
+/* TITRES GLOBAL */
+/* ============================= */
+
+h1,
+h2,
+h3 {
+
+  font-weight: 600;
+
+  color: #0f172a;
+
+}
+
+
+/* ============================= */
+/* INPUT GLOBAL */
+/* ============================= */
+
+input,
+textarea {
+
+  font-family: inherit;
+
+  font-size: 15px;
+
+  padding: 10px 14px;
+
+  border-radius: 8px;
+
+  border: 1px solid #cbd5e1;
+
+  outline: none;
+
+  transition: 0.2s;
+
+}
+
+input:focus,
+textarea:focus {
+
+  border-color: #4f46e5;
+
+  box-shadow:
+    0 0 0 3px rgba(79, 70, 229, 0.15);
+
+}
+
+
+/* ============================= */
+/* BUTTON GLOBAL */
+/* ============================= */
+
+button {
+
+  font-family: inherit;
+
+  font-size: 14px;
+
+  padding: 10px 16px;
+
+  border-radius: 8px;
+
+  border: none;
+
+  cursor: pointer;
+
+  font-weight: 600;
+
+  background: linear-gradient(
+    135deg,
+    #4f46e5,
+    #6366f1
+  );
+
+  color: white;
+
+  transition: 0.2s;
+
+}
+
+button:hover {
+
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 6px 15px rgba(79,70,229,0.25);
+
+}
+
+button:active {
+
+  transform: translateY(0);
+
+}
+
+
+/* ============================= */
+/* AUTH FORM */
+/* ============================= */
+
+.auth-form {
+
+  background: white;
+
+  padding: 40px 30px;
+
+  border-radius: 16px;
+
+  box-shadow:
+    0 20px 40px rgba(0,0,0,0.1);
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 15px;
+
+  width: 100%;
+
+  max-width: 420px;
+
+  margin: 60px auto;
+
+  transition: 0.3s;
+
+}
+
+.auth-form:hover {
+
+  transform: translateY(-4px);
+
+  box-shadow:
+    0 30px 60px rgba(0,0,0,0.15);
+
+}
+
+
+/* ============================= */
+/* AUTH TEXT */
+/* ============================= */
+
+.auth-message {
+
+  color: #475569;
+
+  font-size: 14px;
+
+  text-align: center;
+
+}
+
+.auth-link {
+
+  color: #4f46e5;
+
+  cursor: pointer;
+
+  font-weight: 500;
+
+}
+
+.auth-link:hover {
+
+  text-decoration: underline;
+
+}
+
+.auth-error {
+
+  color: #dc2626;
+
+  text-align: center;
+
+}
+
+.auth-success {
+
+  color: #16a34a;
+
+  text-align: center;
+
+}
+
+
+/* ============================= */
+/* BOARD LIST PAGE */
+/* ============================= */
+
+ul {
+
+  list-style: none;
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 12px;
+
+  padding: 20px;
+
+}
+
+ul li {
+
+  background: white;
+
+  padding: 22px;
+
+  border-radius: 12px;
+
+  box-shadow:
+    0 4px 15px rgba(0,0,0,0.05);
+
+  cursor: pointer;
+
+  transition: 0.2s;
+
+}
+
+ul li:hover {
+
+  transform: translateY(-3px);
+
+  box-shadow:
+    0 15px 35px rgba(0,0,0,0.12);
+
+}
+
+
+/* ============================= */
+/* MODAL OVERLAY GLOBAL */
+/* ============================= */
+
+.modal-overlay {
+
+  position: fixed;
+
+  inset: 0;
+
+  background: rgba(15,23,42,0.5);
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  z-index: 1000;
+
+}
+
+
+/* ============================= */
+/* SCROLLBAR GLOBAL */
+/* ============================= */
+
+::-webkit-scrollbar {
+
+  width: 8px;
+  height: 8px;
+
+}
+
+::-webkit-scrollbar-thumb {
+
+  background: #6366f1;
+
+  border-radius: 4px;
+
+}
+
+
+/* ============================= */
+/* MOBILE */
+/* ============================= */
+
+@media(max-width:768px) {
+
+  .auth-form {
+
+    margin: 30px 10px;
+
+  }
+
+}
