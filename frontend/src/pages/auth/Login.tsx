@@ -1,57 +1,100 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { login } from "../../api/strapiApi";
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function LoginPage() {
-	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
-	const [loading, _setLoading] = useState(false);
-	const [error, _setError] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		// setLoading(true);
-		// setError("");
-		// const res = await mockAuth.login(email, password);
-		// setLoading(false);
-		// if (res.success) onLogin(email);
-		// else setError(res.message || "Erreur inconnue");
-	};
+  const { setAuth } = useAuth();
+  const navigate = useNavigate();
 
-	return (
-		<div className="bg-white rounded-lg shadow-lg p-8">
-			<h1 className="text-3xl font-bold text-center text-gray-900 mb-8">Connexion</h1>
-			<form onSubmit={handleSubmit} className="space-y-4">
-				<input
-					type="email"
-					placeholder="Email"
-					value={email}
-					onChange={e => setEmail(e.target.value)}
-					required
-					className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-				/>
-				<input
-					type="password"
-					placeholder="Mot de passe"
-					value={password}
-					onChange={e => setPassword(e.target.value)}
-					required
-					className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-				/>
-				<button
-					type="submit"
-					disabled={loading}
-					className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-400 cursor-pointer text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-				>
-					{loading ? "Connexion..." : "Se connecter"}
-				</button>
-				{error && <p className="text-red-500 text-sm text-center font-medium">{error}</p>}
-			</form>
-			<p className="text-center text-gray-600 text-sm mt-6">
-				Pas de compte ?{" "}
-				<Link to="/auth/register" className="text-indigo-600 font-semibold hover:text-indigo-700 transition-colors">
-					Inscrivez-vous
-				</Link>
-			</p>
-		</div>
-	);
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      const { user, jwt } = await login(email, password);
+      setAuth(user, jwt);
+      navigate("/boards");
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message ?? "Email ou mot de passe incorrect.";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl shadow-xl p-8">
+      <h1 className="text-2xl font-bold text-gray-900 mb-1">Connexion</h1>
+      <p className="text-gray-500 text-sm mb-6">
+        Accédez à vos tableaux Kanban
+      </p>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Email
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="nom.prenom@supinfo.com"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Mot de passe
+          </label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer"
+        >
+          {loading ? (
+            <>
+              <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Connexion...
+            </>
+          ) : (
+            "Se connecter"
+          )}
+        </button>
+      </form>
+
+      <p className="text-center text-sm text-gray-500 mt-6">
+        Pas encore de compte ?{" "}
+        <Link
+          to="/auth/register"
+          className="text-indigo-600 hover:underline font-semibold"
+        >
+          S'inscrire
+        </Link>
+      </p>
+    </div>
+  );
 }

@@ -1,52 +1,31 @@
+import { type ReactNode } from 'react';
+
 type ModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
 };
 
 export default function Modal({ isOpen, onClose, children }: ModalProps) {
-
   if (!isOpen) return null;
 
   return (
     <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        background: "rgba(0,0,0,0.5)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 1000,
-      }}
+      className="fixed inset-0 bg-black/50 flex justify-center items-center z-[1000]"
       onClick={onClose}
     >
-
       <div
-        style={{
-          background: "white",
-          padding: "20px",
-          borderRadius: "10px",
-          minWidth: "300px",
-          maxWidth: "500px",
-        }}
+        className="bg-white p-5 rounded-xl min-w-[300px] max-w-[500px] w-full"
         onClick={(e) => e.stopPropagation()}
       >
-
         {children}
-
         <button
           onClick={onClose}
-          style={{ marginTop: "15px" }}
+          className="mt-4 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors cursor-pointer"
         >
           Fermer
         </button>
-
       </div>
-
     </div>
   );
 }

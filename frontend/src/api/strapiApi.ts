@@ -1,174 +1,206 @@
 import { apiClient } from "./apiClient";
+import type { Board, Column, Card, User } from "../types";
 
-export type Card = {
-  id: string;
-  title: string;
-  description?: string;
-  dueDate?: string;
-  labels?: string[];
-};
-
-export type Column = {
-  id: string;
-  name: string;
-  cards: Card[];
-};
-
-export type Board = {
-  id: string;
-  name: string;
-  columns: Column[];
-};
-
-type StrapiCard = {
-  id: number;
-  title: string;
-  description?: string;
-  dueDate?: string;
-  labels?: string[];
-};
-
-type StrapiColumn = {
-  id: number;
-  name: string;
-  cards?: StrapiCard[];
-};
-
-type StrapiBoard = {
-  id: number;
-  name: string;
-  columns?: StrapiColumn[];
-};
-
-type StrapiResponse<T> = {
-  data: T;
-};
-
-type StrapiAuthResponse = {
+interface LoginResponse {
   jwt: string;
-  user: {
-    id: number;
-    email: string;
-    username: string;
-  };
-};
+  user: User;
+}
 
-function mapCard(card: StrapiCard): Card {
+// Types pour les données reçues depuis l'API Strapi
+
+interface CardAPI {
+  documentId: string;
+  title: string;
+  description?: string | null;
+  dueDate?: string | null;
+  labels?: string[] | null;
+  order?: number;
+}
+
+interface ColumnAPI {
+  documentId: string;
+  name: string;
+  order?: number;
+  cards?: CardAPI[];
+}
+
+interface BoardAPI {
+  documentId: string;
+  name: string;
+  columns?: ColumnAPI[];
+}
+
+// Fonctions qui convertissent les données de l'API en objets utilisés dans l'app
+
+function toCard(data: CardAPI): Card {
   return {
-    id: String(card.id),
-    title: card.title,
-    description: card.description ?? "",
-    dueDate: card.dueDate ?? "",
-    labels: card.labels ?? [],
+    documentId: data.documentId,
+    title: data.title,
+    description: data.description ?? null,
+    dueDate: data.dueDate ?? null,
+    labels: Array.isArray(data.labels) ? data.labels : null,
+    order: data.order ?? 0,
   };
 }
 
-function mapColumn(column: StrapiColumn): Column {
+function toColumn(data: ColumnAPI): Column {
+  const cards = (data.cards ?? [])
+    .map(toCard)
+    .sort((a, b) => a.order - b.order);
+
   return {
-    id: String(column.id),
-    name: column.name,
-    cards: column.cards?.map(mapCard) ?? [],
+    documentId: data.documentId,
+    name: data.name,
+    order: data.order ?? 0,
+    cards,
   };
 }
 
-function mapBoard(board: StrapiBoard): Board {
+function toBoard(data: BoardAPI): Board {
+  const columns = (data.columns ?? [])
+    .map(toColumn)
+    .sort((a, b) => a.order - b.order);
+
   return {
-    id: String(board.id),
-    name: board.name,
-    columns: board.columns?.map(mapColumn) ?? [],
+    documentId: data.documentId,
+    name: data.name,
+    columns,
   };
 }
 
-export const strapiApi = {
+// Auth
 
-  // Auth
-  async login(email: string, password: string): Promise<{ success: boolean; email?: string; message?: string }> {
-    try {
-      const res = await apiClient.post<StrapiAuthResponse>("/auth/local", {
-        identifier: email,
-        password,
-      });
-      localStorage.setItem("jwt", res.data.jwt);
-      return { success: true, email: res.data.user.email };
-    } catch {
-      return { success: false, message: "Email ou mot de passe incorrect" };
-    }
-  },
+export async function login(
+  email: string,
+  password: string
+): Promise<LoginResponse> {
+  const res = await apiClient.post<LoginResponse>("/auth/local", {
+    identifier: email,
+    password,
+  });
 
-  async register(email: string, password: string): Promise<{ success: boolean; email?: string; message?: string }> {
-    try {
-      const res = await apiClient.post<StrapiAuthResponse>("/auth/local/register", {
-        username: email,
-        email,
-        password,
-      });
-      localStorage.setItem("jwt", res.data.jwt);
-      return { success: true, email: res.data.user.email };
-    } catch {
-      return { success: false, message: "Veuillez remplir tous les champs" };
-    }
-  },
+  return res.data;
+}
 
-  logout() {
-    localStorage.removeItem("jwt");
-  },
+export async function register(
+  username: string,
+  email: string,
+  password: string
+): Promise<LoginResponse> {
+  const res = await apiClient.post<LoginResponse>("/auth/local/register", {
+    username,
+    email,
+    password,
+  });
 
-  isAuthenticated(): boolean {
-    return !!localStorage.getItem("jwt");
-  },
+  return res.data;
+}
 
-  // Boards
-  async getBoards(): Promise<Board[]> {
-    const res = await apiClient.get<StrapiResponse<StrapiBoard[]>>(
-      "/boards?populate=columns.cards"
-    );
-    return res.data.data.map(mapBoard);
-  },
+export function logout(): void {
+  localStorage.removeItem("jwt");
+  localStorage.removeItem("user");
+}
 
-  async createBoard(name: string): Promise<Board> {
-    const res = await apiClient.post<StrapiResponse<StrapiBoard>>("/boards", {
-      data: { name },
-    });
-    return mapBoard(res.data.data);
-  },
+export function isAuthenticated(): boolean {
+  return !!localStorage.getItem("jwt");
+}
 
-  async deleteBoard(boardId: string): Promise<void> {
-    await apiClient.delete(`/boards/${boardId}`);
-  },
+// Boards
 
-  // Columns
-  async createColumn(boardId: string, name: string): Promise<Column> {
-    const res = await apiClient.post<StrapiResponse<StrapiColumn>>("/columns", {
-      data: { name, board: Number(boardId) },
-    });
-    return mapColumn(res.data.data);
-  },
+export async function getBoards(): Promise<Board[]> {
+  const res = await apiClient.get<{ data: BoardAPI[] }>("/boards");
 
-  async deleteColumn(columnId: string): Promise<void> {
-    await apiClient.delete(`/columns/${columnId}`);
-  },
+  return (res.data.data ?? []).map(toBoard);
+}
 
-  // Cards
-  async createCard(columnId: string, title: string): Promise<Card> {
-    const res = await apiClient.post<StrapiResponse<StrapiCard>>("/cards", {
-      data: { title, column: Number(columnId) },
-    });
-    return mapCard(res.data.data);
-  },
+export async function getBoardById(id: string): Promise<Board> {
+  const res = await apiClient.get<{ data: BoardAPI }>(
+    `/boards/${id}?populate[columns][populate]=cards`
+  );
 
-  async updateCard(card: Card): Promise<Card> {
-    const res = await apiClient.put<StrapiResponse<StrapiCard>>(`/cards/${card.id}`, {
-      data: {
-        title: card.title,
-        description: card.description,
-        dueDate: card.dueDate,
-        labels: card.labels,
-      },
-    });
-    return mapCard(res.data.data);
-  },
+  return toBoard(res.data.data);
+}
 
-  async deleteCard(cardId: string): Promise<void> {
-    await apiClient.delete(`/cards/${cardId}`);
-  },
-};
+export async function createBoard(name: string): Promise<Board> {
+  const res = await apiClient.post<{ data: BoardAPI }>("/boards", {
+    data: { name },
+  });
+
+  return toBoard(res.data.data);
+}
+
+export async function deleteBoard(id: string): Promise<void> {
+  await apiClient.delete(`/boards/${id}`);
+}
+
+// Columns
+
+export async function createColumn(
+  boardId: string,
+  name: string,
+  order: number
+): Promise<Column> {
+  const res = await apiClient.post<{ data: ColumnAPI }>("/columns", {
+    data: { name, board: boardId, order },
+  });
+
+  return toColumn(res.data.data);
+}
+
+export async function updateColumn(
+  id: string,
+  fields: Partial<{ name: string; order: number }>
+): Promise<Column> {
+  const res = await apiClient.put<{ data: ColumnAPI }>(
+    `/columns/${id}`,
+    { data: fields }
+  );
+
+  return toColumn(res.data.data);
+}
+
+export async function deleteColumn(id: string): Promise<void> {
+  await apiClient.delete(`/columns/${id}`);
+}
+
+// Cards
+
+export async function createCard(
+  columnId: string,
+  fields: {
+    title: string;
+    description?: string;
+    dueDate?: string;
+    labels?: string[];
+    order: number;
+  }
+): Promise<Card> {
+  const res = await apiClient.post<{ data: CardAPI }>("/cards", {
+    data: { ...fields, column: columnId },
+  });
+
+  return toCard(res.data.data);
+}
+
+export async function updateCard(
+  id: string,
+  fields: Partial<{
+    title: string;
+    description: string | null;
+    dueDate: string | null;
+    labels: string[] | null;
+    order: number;
+    column: string;
+  }>
+): Promise<Card> {
+  const res = await apiClient.put<{ data: CardAPI }>(
+    `/cards/${id}`,
+    { data: fields }
+  );
+
+  return toCard(res.data.data);
+}
+
+export async function deleteCard(id: string): Promise<void> {
+  await apiClient.delete(`/cards/${id}`);
+}

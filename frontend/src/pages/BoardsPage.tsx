@@ -1,226 +1,226 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import {
-  CalendarDays,
-  LayoutGrid,
-  Plus,
-  Trash2,
-} from "lucide-react";
-
-interface Board {
-  id: string;
-  name: string;
-  description: string;
-  createdAt: string;
-  cardCount: number;
-  columnCount: number;
-}
-
-const MOCK_BOARDS: Board[] = [
-  {
-    id: "1",
-    name: "Sprint 1",
-    description: "First sprint tasks",
-    createdAt: "2026-02-01",
-    cardCount: 12,
-    columnCount: 3,
-  },
-  {
-    id: "2",
-    name: "Website Redesign",
-    description: "UI/UX improvements",
-    createdAt: "2026-01-15",
-    cardCount: 8,
-    columnCount: 4,
-  },
-  {
-    id: "3",
-    name: "Backend API",
-    description: "REST API development",
-    createdAt: "2026-01-20",
-    cardCount: 15,
-    columnCount: 3,
-  },
-  {
-    id: "4",
-    name: "Marketing Campaign",
-    description: "Q1 marketing initiatives",
-    createdAt: "2026-02-05",
-    cardCount: 6,
-    columnCount: 2,
-  },
-];
+import { useState, useEffect, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
+import { LayoutGrid, Plus, Trash2 } from 'lucide-react';
+import { getBoards, createBoard, deleteBoard } from '../api/strapiApi';
+import { useToast } from '../components/Toast';
+import type { Board } from '../types';
 
 export default function BoardsPage() {
-  const [boards, setBoards] = useState<Board[]>(MOCK_BOARDS);
-  const [newBoardName, setNewBoardName] = useState("");
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [boards, setBoards] = useState<Board[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [boardName, setBoardName] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [boardToDelete, setBoardToDelete] = useState<Board | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const { addToast } = useToast();
 
-  const handleCreateBoard = () => {
-    if (!newBoardName.trim()) return;
+  useEffect(() => {
+    loadBoards();
+  }, []);
 
-    const newBoard: Board = {
-      id: Math.random().toString(),
-      name: newBoardName,
-      description: "",
-      createdAt: new Date().toISOString().split("T")[0],
-      cardCount: 0,
-      columnCount: 0,
-    };
+  async function loadBoards() {
+    setLoading(true);
+    try {
+      const data = await getBoards();
+      console.log('Boards loaded:', data);
+      setBoards(data);
+    } catch {
+      addToast('error', 'Impossible de charger les tableaux.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
-    setBoards([...boards, newBoard]);
-    setNewBoardName("");
-    setShowCreateForm(false);
-  };
+  async function handleCreateBoard(e: FormEvent) {
+    e.preventDefault();
+    if (!boardName.trim()) return;
+    setCreating(true);
+    try {
+      const board = await createBoard(boardName.trim());
+      setBoards((prev) => [...prev, board]);
+      setBoardName('');
+      setShowForm(false);
+      addToast('success', 'Tableau créé avec succès.');
+    } catch {
+      addToast('error', 'Impossible de créer le tableau.');
+    } finally {
+      setCreating(false);
+    }
+  }
 
-  const handleDeleteBoard = (id: string) => {
-    setBoards(boards.filter(board => board.id !== id));
-  };
+  async function handleDeleteBoard() {
+    if (!boardToDelete) return;
+    setDeleting(true);
+    try {
+      await deleteBoard(boardToDelete.documentId);
+      setBoards((prev) => prev.filter((b) => b.documentId !== boardToDelete.documentId));
+      setBoardToDelete(null);
+      addToast('success', 'Tableau supprimé.');
+    } catch {
+      addToast('error', 'Impossible de supprimer le tableau.');
+    } finally {
+      setDeleting(false);
+    }
+  }
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("fr-FR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full p-8">
+        <div className="w-8 h-8 border-4 border-indigo-300 border-t-indigo-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  const totalCards = boards.reduce(
+    (sum, b) => sum + b.columns.reduce((s, c) => s + c.cards.length, 0),
+    0
+  );
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-8 gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900">Mes boards</h2>
-          <p className="text-gray-600 mt-1">{boards.length} board{boards.length > 1 ? "s" : ""} à gérer</p>
+          <h2 className="text-3xl font-bold text-gray-900">Mes tableaux</h2>
+          <p className="text-gray-500 mt-1 text-sm">
+            {boards.length} tableau{boards.length !== 1 ? 'x' : ''} &middot; {totalCards} carte{totalCards !== 1 ? 's' : ''}
+          </p>
         </div>
-
         <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center gap-2 transition-colors shadow-sm cursor-pointer"
+          onClick={() => setShowForm(true)}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center gap-2 transition-colors shadow-sm cursor-pointer shrink-0"
         >
           <Plus size={18} />
-          Nouveau board
+          <span className="hidden sm:inline">Nouveau tableau</span>
+          <span className="sm:hidden">Nouveau</span>
         </button>
       </div>
 
-      {showCreateForm && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6 mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Créer un nouveau board</h3>
-          <div className="flex gap-3">
-            <input
-              type="text"
-              placeholder="Nom du board"
-              value={newBoardName}
-              onChange={e => setNewBoardName(e.target.value)}
-              onKeyPress={e => e.key === "Enter" && handleCreateBoard()}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              autoFocus
-            />
-            <button
-              onClick={handleCreateBoard}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors cursor-pointer"
-            >
-              Créer
-            </button>
-            <button
-              onClick={() => setShowCreateForm(false)}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-900 font-semibold py-2 px-6 rounded-lg transition-colors cursor-pointer"
-            >
-              Annuler
-            </button>
-          </div>
-        </div>
-      )}
-
       {boards.length === 0 ? (
-        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full mb-4">
             <LayoutGrid size={28} />
           </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Aucun board</h3>
-          <p className="text-gray-600 mb-6">Créez votre premier board pour commencer à organiser vos tâches</p>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Aucun tableau</h3>
+          <p className="text-gray-500 mb-6">
+            Créez votre premier tableau Kanban pour organiser vos tâches.
+          </p>
           <button
-            onClick={() => setShowCreateForm(true)}
+            onClick={() => setShowForm(true)}
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg inline-flex items-center gap-2 transition-colors cursor-pointer"
           >
             <Plus size={18} />
-            Créer un board
+            Créer un tableau
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {boards.map(board => (
-            <Link
-              key={board.id}
-              to={`/board/${board.id}`}
-              className="bg-white rounded-lg border border-gray-200 hover:border-indigo-300 transition-colors cursor-pointer group no-underline text-inherit block"
-            >
-              <div className="px-4 py-4">
-                <h3 className="text-lg font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors mb-1">
-                  {board.name}
-                </h3>
-
-                {board.description && (
-                  <p className="text-sm text-gray-600 mb-3">{board.description}</p>
-                )}
-
-                <div className="flex gap-4 mb-4 text-sm text-gray-600">
-                  <div>
-                    <span className="font-semibold text-gray-900">{board.cardCount}</span>
-                    <span> tâches</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {boards.map((board) => {
+            const cardCount = board.columns.reduce((s, c) => s + c.cards.length, 0);
+            return (
+              <Link
+                key={board.documentId}
+                to={`/board/${board.documentId}`}
+                className="bg-white rounded-xl border border-gray-200 hover:border-indigo-300 hover:shadow-md transition-all block group"
+              >
+                <div className="p-5 flex flex-col h-full">
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <h3 className="text-lg font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors line-clamp-2">
+                      {board.name}
+                    </h3>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setBoardToDelete(board);
+                      }}
+                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100 shrink-0 cursor-pointer"
+                      title="Supprimer"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
-                  <div>
-                    <span className="font-semibold text-gray-900">{board.columnCount}</span>
-                    <span> colonnes</span>
+                  <div className="flex gap-4 text-sm text-gray-500 mt-auto pt-3 border-t border-gray-100">
+                    <span>
+                      <strong className="text-gray-800">{board.columns.length}</strong> colonne{board.columns.length !== 1 ? 's' : ''}
+                    </span>
+                    <span>
+                      <strong className="text-gray-800">{cardCount}</strong> carte{cardCount !== 1 ? 's' : ''}
+                    </span>
                   </div>
                 </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
 
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                  <p className="text-xs text-gray-500 inline-flex items-center gap-1.5">
-                    <CalendarDays size={14} />
-                    {formatDate(board.createdAt)}
-                  </p>
-                  <button
-                    onClick={e => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setBoardToDelete(board);
-                    }}
-                    className="p-1.5 cursor-pointer hover:bg-red-50 hover:text-red-600 rounded transition-colors opacity-0 group-hover:opacity-100"
-                    title="Supprimer"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+      {showForm && (
+        <div className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Nouveau tableau</h2>
+            <form onSubmit={handleCreateBoard} className="space-y-4">
+              <input
+                type="text"
+                autoFocus
+                value={boardName}
+                onChange={(e) => setBoardName(e.target.value)}
+                placeholder="Nom du tableau"
+                required
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => { setShowForm(false); setBoardName(''); }}
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  {creating ? (
+                    <>
+                      <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Création...
+                    </>
+                  ) : 'Créer'}
+                </button>
               </div>
-            </Link>
-          ))}
+            </form>
+          </div>
         </div>
       )}
 
       {boardToDelete && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-          <div className="bg-white w-full max-w-sm rounded-lg border border-gray-200 p-5">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Confirmer la suppression</h3>
-            <p className="text-sm text-gray-600 mb-5">
-              Supprimer le board <span className="font-semibold text-gray-800">{boardToDelete.name}</span> ?
+        <div className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">Supprimer le tableau</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Voulez-vous vraiment supprimer{' '}
+              <strong>"{boardToDelete.name}"</strong> ? Cette action est irréversible.
             </p>
-            <div className="flex justify-end gap-3">
+            <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setBoardToDelete(null)}
-                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-900 font-semibold transition-colors cursor-pointer"
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
               >
                 Annuler
               </button>
               <button
-                onClick={() => {
-                  handleDeleteBoard(boardToDelete.id);
-                  setBoardToDelete(null);
-                }}
-                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors cursor-pointer"
+                onClick={handleDeleteBoard}
+                disabled={deleting}
+                className="bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
               >
-                Supprimer
+                {deleting ? (
+                  <>
+                    <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Suppression...
+                  </>
+                ) : 'Supprimer'}
               </button>
             </div>
           </div>

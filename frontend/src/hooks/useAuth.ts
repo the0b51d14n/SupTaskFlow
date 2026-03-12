@@ -1,35 +1,48 @@
 import { useState } from "react";
-import { strapiApi } from "../api/strapiApi";
+import { login, register, logout } from "../api/strapiApi";
+import type { User } from "../types";
 
 export function useAuth() {
-  const [user, setUser] = useState<string | null>(() => {
-    // Restaure l'utilisateur depuis le localStorage au démarrage
-    return localStorage.getItem("user");
+  const [user, setUser] = useState<User | null>(() => {
+    const stored = localStorage.getItem("user");
+    return stored ? JSON.parse(stored) : null;
   });
 
-  const login = async (email: string, password: string) => {
-    const result = await strapiApi.login(email, password);
-    if (result.success && result.email) {
-      setUser(result.email);
-      localStorage.setItem("user", result.email);
-    }
-    return result;
+  const handleLogin = async (email: string, password: string) => {
+    const { user, jwt } = await login(email, password);
+
+    setUser(user);
+    localStorage.setItem("user", JSON.stringify(user));
+    localStorage.setItem("jwt", jwt);
+
+    return { user, jwt };
   };
 
-  const register = async (email: string, password: string) => {
-    const result = await strapiApi.register(email, password);
-    if (result.success && result.email) {
-      setUser(result.email);
-      localStorage.setItem("user", result.email);
-    }
-    return result;
+  const handleRegister = async (
+    username: string,
+    email: string,
+    password: string
+  ) => {
+    const { user, jwt } = await register(username, email, password);
+
+    setUser(user);
+    localStorage.setItem("user", JSON.stringify(user));
+    localStorage.setItem("jwt", jwt);
+
+    return { user, jwt };
   };
 
-  const logout = () => {
-    strapiApi.logout();
+  const handleLogout = () => {
+    logout();
     localStorage.removeItem("user");
+    localStorage.removeItem("jwt");
     setUser(null);
   };
 
-  return { user, login, register, logout };
+  return {
+    user,
+    login: handleLogin,
+    register: handleRegister,
+    logout: handleLogout,
+  };
 }

@@ -7,11 +7,27 @@ export const apiClient = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Injecte le token JWT automatiquement si présent
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem("jwt");
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    config.headers["Authorization"] = `Bearer ${token}`;
   }
   return config;
 });
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    if (status === 401) {
+      localStorage.removeItem("jwt");
+      localStorage.removeItem("user");
+
+      if (!window.location.pathname.startsWith("/auth")) {
+        window.location.assign("/auth/login");
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
