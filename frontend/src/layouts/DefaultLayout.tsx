@@ -1,26 +1,42 @@
-import { Outlet, useNavigate } from "react-router-dom";
+import React from 'react';
+import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function DefaultLayout() {
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  return (
-    <div className="h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">SupTaskFlow</h1>
+  function handleLogout() {
+    logout();
+    navigate('/auth/login');
+  }
 
-          <div className="flex items-center gap-3">
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <header className="bg-indigo-700 text-white shadow-md flex-shrink-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
+          <Link
+            to="/boards"
+            className="text-xl font-bold tracking-tight hover:text-indigo-200 transition-colors whitespace-nowrap"
+          >
+            SupTaskFlow
+          </Link>
+          <div className="flex items-center gap-3 min-w-0">
+            {user && (
+              <span className="text-sm text-indigo-200 truncate hidden sm:block">
+                {user.email}
+              </span>
+            )}
             <button
-              onClick={() => navigate("/auth/login")}
-              className="cursor-pointer px-4 py-2 text-sm text-red-600 hover:bg-red-100 bg-red-50 border shadow border-red-300 rounded-lg transition-colors"
+              onClick={handleLogout}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 py-1.5 rounded-md transition-colors whitespace-nowrap flex-shrink-0 cursor-pointer"
             >
               Se déconnecter
             </button>
           </div>
         </div>
       </header>
-
-      <main className="flex-1 overflow-auto p-0 m-0">
+      <main className="flex-1 overflow-auto">
         <Outlet />
       </main>
     </div>

@@ -1,174 +1,208 @@
 import { apiClient } from "./apiClient";
+import type { Board, Column, Card, User } from "../types";
 
-export type Card = {
-  id: string;
-  title: string;
-  description?: string;
-  dueDate?: string;
-  labels?: string[];
-};
-
-export type Column = {
-  id: string;
-  name: string;
-  cards: Card[];
-};
-
-export type Board = {
-  id: string;
-  name: string;
-  columns: Column[];
-};
-
-type StrapiCard = {
-  id: number;
-  title: string;
-  description?: string;
-  dueDate?: string;
-  labels?: string[];
-};
-
-type StrapiColumn = {
-  id: number;
-  name: string;
-  cards?: StrapiCard[];
-};
-
-type StrapiBoard = {
-  id: number;
-  name: string;
-  columns?: StrapiColumn[];
-};
-
-type StrapiResponse<T> = {
-  data: T;
-};
-
-type StrapiAuthResponse = {
+interface StrapiAuthResponse {
   jwt: string;
-  user: {
-    id: number;
-    email: string;
-    username: string;
-  };
-};
+  user: User;
+}
 
-function mapCard(card: StrapiCard): Card {
+/* ---------- Types des données brutes Strapi ---------- */
+
+interface RawCard {
+  documentId: string;
+  title: string;
+  description?: string | null;
+  dueDate?: string | null;
+  labels?: string[] | null;
+  order?: number;
+}
+
+interface RawColumn {
+  documentId: string;
+  name: string;
+  order?: number;
+  cards?: RawCard[];
+}
+
+interface RawBoard {
+  documentId: string;
+  name: string;
+  columns?: RawColumn[];
+}
+
+/* ---------- Mappers ---------- */
+
+function mapCard(raw: RawCard): Card {
   return {
-    id: String(card.id),
-    title: card.title,
-    description: card.description ?? "",
-    dueDate: card.dueDate ?? "",
-    labels: card.labels ?? [],
+    documentId: raw.documentId,
+    title: raw.title,
+    description: raw.description ?? null,
+    dueDate: raw.dueDate ?? null,
+    labels: Array.isArray(raw.labels) ? raw.labels : null,
+    order: raw.order ?? 0,
   };
 }
 
-function mapColumn(column: StrapiColumn): Column {
+function mapColumn(raw: RawColumn): Column {
+  const cards = (raw.cards ?? [])
+    .map(mapCard)
+    .sort((a, b) => a.order - b.order);
+
   return {
-    id: String(column.id),
-    name: column.name,
-    cards: column.cards?.map(mapCard) ?? [],
+    documentId: raw.documentId,
+    name: raw.name,
+    order: raw.order ?? 0,
+    cards,
   };
 }
 
-function mapBoard(board: StrapiBoard): Board {
+function mapBoard(raw: RawBoard): Board {
+  const columns = (raw.columns ?? [])
+    .map(mapColumn)
+    .sort((a, b) => a.order - b.order);
+
   return {
-    id: String(board.id),
-    name: board.name,
-    columns: board.columns?.map(mapColumn) ?? [],
+    documentId: raw.documentId,
+    name: raw.name,
+    columns,
   };
 }
 
-export const strapiApi = {
+/* ---------- Auth ---------- */
 
-  // Auth
-  async login(email: string, password: string): Promise<{ success: boolean; email?: string; message?: string }> {
-    try {
-      const res = await apiClient.post<StrapiAuthResponse>("/auth/local", {
-        identifier: email,
-        password,
-      });
-      localStorage.setItem("jwt", res.data.jwt);
-      return { success: true, email: res.data.user.email };
-    } catch {
-      return { success: false, message: "Email ou mot de passe incorrect" };
-    }
-  },
+export async function login(
+  email: string,
+  password: string
+): Promise<StrapiAuthResponse> {
+  const res = await apiClient.post<StrapiAuthResponse>("/auth/local", {
+    identifier: email,
+    password,
+  });
 
-  async register(email: string, password: string): Promise<{ success: boolean; email?: string; message?: string }> {
-    try {
-      const res = await apiClient.post<StrapiAuthResponse>("/auth/local/register", {
-        username: email,
-        email,
-        password,
-      });
-      localStorage.setItem("jwt", res.data.jwt);
-      return { success: true, email: res.data.user.email };
-    } catch {
-      return { success: false, message: "Veuillez remplir tous les champs" };
-    }
-  },
+  return res.data;
+}
 
-  logout() {
-    localStorage.removeItem("jwt");
-  },
+export async function register(
+  username: string,
+  email: string,
+  password: string
+): Promise<StrapiAuthResponse> {
+  const res = await apiClient.post<StrapiAuthResponse>("/auth/local/register", {
+    username,
+    email,
+    password,
+  });
 
-  isAuthenticated(): boolean {
-    return !!localStorage.getItem("jwt");
-  },
+  return res.data;
+}
 
-  // Boards
-  async getBoards(): Promise<Board[]> {
-    const res = await apiClient.get<StrapiResponse<StrapiBoard[]>>(
-      "/boards?populate=columns.cards"
-    );
-    return res.data.data.map(mapBoard);
-  },
+export function logout(): void {
+  localStorage.removeItem("jwt");
+  localStorage.removeItem("user");
+}
 
-  async createBoard(name: string): Promise<Board> {
-    const res = await apiClient.post<StrapiResponse<StrapiBoard>>("/boards", {
-      data: { name },
-    });
-    return mapBoard(res.data.data);
-  },
+export function isAuthenticated(): boolean {
+  return !!localStorage.getItem("jwt");
+}
 
-  async deleteBoard(boardId: string): Promise<void> {
-    await apiClient.delete(`/boards/${boardId}`);
-  },
+/* ---------- Boards ---------- */
 
-  // Columns
-  async createColumn(boardId: string, name: string): Promise<Column> {
-    const res = await apiClient.post<StrapiResponse<StrapiColumn>>("/columns", {
-      data: { name, board: Number(boardId) },
-    });
-    return mapColumn(res.data.data);
-  },
+export async function getBoards(): Promise<Board[]> {
+  const res = await apiClient.get<{ data: RawBoard[] }>(
+    "/boards?populate[columns][populate][cards]=*"
+  );
 
-  async deleteColumn(columnId: string): Promise<void> {
-    await apiClient.delete(`/columns/${columnId}`);
-  },
+  return (res.data.data ?? []).map(mapBoard);
+}
 
-  // Cards
-  async createCard(columnId: string, title: string): Promise<Card> {
-    const res = await apiClient.post<StrapiResponse<StrapiCard>>("/cards", {
-      data: { title, column: Number(columnId) },
-    });
-    return mapCard(res.data.data);
-  },
+export async function getBoardById(documentId: string): Promise<Board> {
+  const res = await apiClient.get<{ data: RawBoard }>(
+    `/boards/${documentId}?populate[columns][populate][cards]=*`
+  );
 
-  async updateCard(card: Card): Promise<Card> {
-    const res = await apiClient.put<StrapiResponse<StrapiCard>>(`/cards/${card.id}`, {
-      data: {
-        title: card.title,
-        description: card.description,
-        dueDate: card.dueDate,
-        labels: card.labels,
-      },
-    });
-    return mapCard(res.data.data);
-  },
+  return mapBoard(res.data.data);
+}
 
-  async deleteCard(cardId: string): Promise<void> {
-    await apiClient.delete(`/cards/${cardId}`);
-  },
-};
+export async function createBoard(name: string): Promise<Board> {
+  const res = await apiClient.post<{ data: RawBoard }>("/boards", {
+    data: { name },
+  });
+
+  return mapBoard(res.data.data);
+}
+
+export async function deleteBoard(documentId: string): Promise<void> {
+  await apiClient.delete(`/boards/${documentId}`);
+}
+
+/* ---------- Columns ---------- */
+
+export async function createColumn(
+  boardDocumentId: string,
+  name: string,
+  order: number
+): Promise<Column> {
+  const res = await apiClient.post<{ data: RawColumn }>("/columns", {
+    data: { name, board: boardDocumentId, order },
+  });
+
+  return mapColumn(res.data.data);
+}
+
+export async function updateColumn(
+  documentId: string,
+  data: Partial<{ name: string; order: number }>
+): Promise<Column> {
+  const res = await apiClient.put<{ data: RawColumn }>(
+    `/columns/${documentId}`,
+    { data }
+  );
+
+  return mapColumn(res.data.data);
+}
+
+export async function deleteColumn(documentId: string): Promise<void> {
+  await apiClient.delete(`/columns/${documentId}`);
+}
+
+/* ---------- Cards ---------- */
+
+export async function createCard(
+  columnDocumentId: string,
+  data: {
+    title: string;
+    description?: string;
+    dueDate?: string;
+    labels?: string[];
+    order: number;
+  }
+): Promise<Card> {
+  const res = await apiClient.post<{ data: RawCard }>("/cards", {
+    data: { ...data, column: columnDocumentId },
+  });
+
+  return mapCard(res.data.data);
+}
+
+export async function updateCard(
+  documentId: string,
+  data: Partial<{
+    title: string;
+    description: string | null;
+    dueDate: string | null;
+    labels: string[] | null;
+    order: number;
+    column: string;
+  }>
+): Promise<Card> {
+  const res = await apiClient.put<{ data: RawCard }>(
+    `/cards/${documentId}`,
+    { data }
+  );
+
+  return mapCard(res.data.data);
+}
+
+export async function deleteCard(documentId: string): Promise<void> {
+  await apiClient.delete(`/cards/${documentId}`);
+}

@@ -7,11 +7,11 @@
     "displayName": "Card"
   },
   "options": {
-    "draftAndPublish": true
+    "draftAndPublish": false
   },
   "pluginOptions": {},
   "attributes": {
-    "Title": {
+    "title": {
       "type": "string",
       "required": true
     },
@@ -21,16 +21,18 @@
     "dueDate": {
       "type": "date"
     },
-    "label": {
-      "type": "json"
-    },
     "column": {
       "type": "relation",
-      "relation": "oneToOne",
+      "relation": "manyToOne",
       "target": "api::column.column",
       "inversedBy": "cards"
     },
-    "ordre": {
+    "labels": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::label.label"
+    },
+    "order": {
       "type": "integer",
       "default": 0
     }

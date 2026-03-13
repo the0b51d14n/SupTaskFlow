@@ -1,64 +1,109 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { mockAuth } from "../../api/mockApi";
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { register } from '../../api/strapiApi';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function RegisterPage() {
-	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState("");
-	const [success, setSuccess] = useState("");
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const { setAuth } = useAuth();
+  const navigate = useNavigate();
 
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		setLoading(true);
-		setError("");
-		setSuccess("");
-		const res = await mockAuth.register(email, password);
-		setLoading(false);
-		if (res.success) {
-			setSuccess("Inscription réussie ! Vous pouvez maintenant vous connecter.");
-			setEmail("");
-			setPassword("");
-		} else setError(res.message || "Erreur inconnue");
-	};
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const { user, jwt } = await register(username, email, password);
+      setAuth(user, jwt);
+      navigate('/boards');
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error?.message ?? 'Une erreur est survenue.';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-	return (
-		<div className="bg-white rounded-lg shadow-lg p-8">
-			<h1 className="text-3xl font-bold text-center text-gray-900 mb-8">Inscription</h1>
-			<form onSubmit={handleSubmit} className="space-y-4">
-				<input
-					type="email"
-					placeholder="Email"
-					value={email}
-					onChange={e => setEmail(e.target.value)}
-					required
-					className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-				/>
-				<input
-					type="password"
-					placeholder="Mot de passe"
-					value={password}
-					onChange={e => setPassword(e.target.value)}
-					required
-					className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-				/>
-				<button
-					type="submit"
-					disabled={loading}
-					className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-400 cursor-pointer text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-				>
-					{loading ? "Inscription..." : "S'inscrire"}
-				</button>
-				{error && <p className="text-red-500 text-sm text-center font-medium">{error}</p>}
-				{success && <p className="text-green-500 text-sm text-center font-medium">{success}</p>}
-			</form>
-			<p className="text-center text-gray-600 text-sm mt-6">
-				Déjà un compte ?{" "}
-				<Link to="/auth/login" className="text-indigo-600 font-semibold hover:text-indigo-700 transition-colors">
-					Connectez-vous
-				</Link>
-			</p>
-		</div>
-	);
+  return (
+    <div className="bg-white rounded-2xl shadow-xl p-8">
+      <h1 className="text-2xl font-bold text-gray-900 mb-1">Inscription</h1>
+      <p className="text-gray-500 text-sm mb-6">Créez votre compte SupTaskFlow</p>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Nom d'utilisateur
+          </label>
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+            placeholder="johndoe"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="vous@exemple.com"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Mot de passe
+          </label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={6}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer"
+        >
+          {loading ? (
+            <>
+              <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Création...
+            </>
+          ) : (
+            'Créer mon compte'
+          )}
+        </button>
+      </form>
+
+      <p className="text-center text-sm text-gray-500 mt-6">
+        Déjà un compte ?{' '}
+        <Link
+          to="/auth/login"
+          className="text-indigo-600 hover:underline font-semibold"
+        >
+          Se connecter
+        </Link>
+      </p>
+    </div>
+  );
 }
